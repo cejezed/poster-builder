@@ -3,7 +3,7 @@ import OpenAI from "openai";
 
 export async function POST(req) {
   try {
-    const { prompt, sizeKey } = await req.json();
+    const { prompt, shape } = await req.json();
     if (!prompt) {
       return new Response(JSON.stringify({ error: "Missing prompt" }), { status: 400 });
     }
@@ -13,7 +13,7 @@ export async function POST(req) {
     }
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const size = pickSupportedSize(sizeKey);
+    const size = pickSupportedSize(shape);
 
     const resp = await client.images.generate({
       model: "gpt-image-1",
@@ -36,14 +36,11 @@ export async function POST(req) {
   }
 }
 
-function pickSupportedSize(sizeKey) {
-  // Map de front‑end formaatkeuze naar een ondersteunde AI resolutie
-  if (!sizeKey) return "1024x1024";
-  if (sizeKey.includes("x")) {
-    const [w, h] = sizeKey.split("x").map(Number);
-    if (w === h) return "1024x1024";
-    if (w > h) return "1536x1024"; // liggend
-    if (h > w) return "1024x1536"; // staand
-  }
+function pickSupportedSize(shape) {
+  // Vierkant → 1024x1024, Staand → 1024x1536, Liggend → 1536x1024
+  if (!shape) return "1024x1024";
+  if (shape === "square") return "1024x1024";
+  if (shape === "portrait") return "1024x1536";
+  if (shape === "landscape") return "1536x1024";
   return "1024x1024";
 }
