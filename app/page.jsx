@@ -69,10 +69,10 @@ export default function Page() {
       const px = target >= 60 ? 1024 : target >= 40 ? 1024 : 512;
 
       const res = await fetch("/api/generate-image", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ prompt, width: px, height: px }),
-      });
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ prompt, shape }),
+});
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Genereren mislukt");
       setImgUrl(data.imageUrl);
