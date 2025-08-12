@@ -3,21 +3,22 @@ import OpenAI from "openai";
 
 export async function POST(req) {
   try {
-    const { prompt, width = 1024, height = 1024 } = await req.json();
+    const { prompt, sizeKey } = await req.json();
     if (!prompt) {
       return new Response(JSON.stringify({ error: "Missing prompt" }), { status: 400 });
     }
+
     if (!process.env.OPENAI_API_KEY) {
       return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), { status: 500 });
     }
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const size = pickSize(width, height);
+    const size = pickSupportedSize(sizeKey);
 
     const resp = await client.images.generate({
       model: "gpt-image-1",
       prompt,
-      size // geen response_format meegeven; SDK geeft b64_json standaard
+      size
     });
 
     const b64 = resp.data?.[0]?.b64_json;
@@ -35,10 +36,14 @@ export async function POST(req) {
   }
 }
 
-function pickSize(w, h) {
-  const max = Math.max(w, h);
-  if (max <= 256) return "256x256";
-  if (max <= 512) return "512x512";
-  if (max <= 1024) return "1024x1024";
-  return "2048x2048";
+function pickSupportedSize(sizeKey) {
+  // Map de front‑end formaatkeuze naar een ondersteunde AI resolutie
+  if (!sizeKey) return "1024x1024";
+  if (sizeKey.includes("x")) {
+    const [w, h] = sizeKey.split("x").map(Number);
+    if (w === h) return "1024x1024";
+    if (w > h) return "1536x1024"; // liggend
+    if (h > w) return "1024x1536"; // staand
+  }
+  return "1024x1024";
 }
