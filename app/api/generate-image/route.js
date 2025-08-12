@@ -1,13 +1,12 @@
 export const runtime = "nodejs";
 import OpenAI from "openai";
 
-export async function POST(req: Request) {
+export async function POST(req) {
   try {
     const { prompt, width = 1024, height = 1024 } = await req.json();
     if (!prompt) {
       return new Response(JSON.stringify({ error: "Missing prompt" }), { status: 400 });
     }
-
     if (!process.env.OPENAI_API_KEY) {
       return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), { status: 500 });
     }
@@ -18,8 +17,7 @@ export async function POST(req: Request) {
     const resp = await client.images.generate({
       model: "gpt-image-1",
       prompt,
-      size
-      // geen response_format meegeven; SDK retourneert b64_json standaard
+      size // geen response_format meegeven; SDK geeft b64_json standaard
     });
 
     const b64 = resp.data?.[0]?.b64_json;
@@ -28,15 +26,16 @@ export async function POST(req: Request) {
     }
 
     const dataUrl = `data:image/png;base64,${b64}`;
-    return Response.json({ imageUrl: dataUrl });
+    return new Response(JSON.stringify({ imageUrl: dataUrl }), {
+      headers: { "content-type": "application/json" },
+    });
   } catch (e) {
-    console.error(e);
-    const msg = e instanceof Error ? e.message : "Image generation failed";
+    const msg = e?.message || "Image generation failed";
     return new Response(JSON.stringify({ error: msg }), { status: 500 });
   }
 }
 
-function pickSize(w: number, h: number) {
+function pickSize(w, h) {
   const max = Math.max(w, h);
   if (max <= 256) return "256x256";
   if (max <= 512) return "512x512";
