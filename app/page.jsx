@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 
+/** Vorm- en maatopties (ongewijzigd) */
 const SHAPES = [
   { key: "square", label: "Vierkant" },
   { key: "portrait", label: "Staand (rechthoek)" },
@@ -31,21 +32,27 @@ const MATERIALS = [
   { key: "frame", label: "Papier + lijst", multiplier: 1.15, add: 15 },
 ];
 
-const TEXT_SIZES = {
-  small: 16,
-  medium: 24,
-  large: 32,
-};
+const TEXT_SIZES = { small: 16, medium: 24, large: 32 };
+
+/** Voorbeeld-posters (uit /public/examples/...). Pas aan naar je echte bestanden. */
+const EXAMPLES = [
+  "/examples/1.jpg", "/examples/2.jpg", "/examples/3.jpg",
+  "/examples/4.jpg", "/examples/5.jpg", "/examples/6.jpg",
+];
 
 export default function Page() {
   const [prompt, setPrompt] = useState("");
   const [shape, setShape] = useState("square");
-  const [sizeKey, setSizeKey] = useState(SIZE_OPTIONS.square[1].key); // 30x30 default
+  const [sizeKey, setSizeKey] = useState(SIZE_OPTIONS.square[1].key);
   const [material, setMaterial] = useState("paper");
+
   const [text, setText] = useState("");
+  const [textAlign, setTextAlign] = useState("center"); // NEW: left|center|right
   const [multiColor, setMultiColor] = useState(false);
-  const [textColors, setTextColors] = useState(["#111111"]); // voor gradient 2–3 kleuren
+  const [textColors, setTextColors] = useState(["#111111"]);
   const [textSizeKey, setTextSizeKey] = useState("medium");
+
+  const [showLogo, setShowLogo] = useState(true); // NEW: logo aan/uit
   const [imgUrl, setImgUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -72,18 +79,23 @@ export default function Page() {
     };
   }
 
+  function alignToFlex(align) {
+    if (align === "left") return "flex-start";
+    if (align === "right") return "flex-end";
+    return "center";
+  }
+
   async function handleGenerate(e) {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setImgUrl(null);
     setOrderResult(null);
-
+    setImgUrl(null);
     try {
       const res = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ prompt, shape }), // server kiest geldige size obv shape
+        body: JSON.stringify({ prompt, shape }), // server kiest geldige size
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Genereren mislukt");
@@ -100,15 +112,9 @@ export default function Page() {
     setOrderResult(null);
     try {
       const payload = {
-        prompt,
-        shape,
-        size: currentSize?.key,
-        material,
-        text,
-        textColors,
-        multiColor,
-        textSize: textSizeKey,
-        price,
+        prompt, shape, size: currentSize?.key, material,
+        text, textColors, multiColor, textSize: textSizeKey, textAlign,
+        showLogo, price,
       };
       const res = await fetch("/api/order", {
         method: "POST",
@@ -123,27 +129,35 @@ export default function Page() {
     }
   }
 
-  const previewAspect = shape === "square" ? "1 / 1" : shape === "portrait" ? "2 / 3" : "3 / 2"; // iets dynamischer, grote weergave
+  const previewAspect = shape === "square" ? "1 / 1" : shape === "portrait" ? "2 / 3" : "3 / 2";
   const overlayFontSize = TEXT_SIZES[textSizeKey] || 24;
 
   return (
     <main className="container">
       <h1 style={{ fontSize: 30, margin: 0 }}>AI Poster Builder</h1>
-      <p style={{ color: "#555", marginTop: 6, marginBottom: 18 }}>Mobiel‑vriendelijk. Grote preview. Meerkleurige tekst en tekstgrootte‑keuze.</p>
+      <p style={{ color: "#555", marginTop: 6, marginBottom: 18 }}>
+        Grote preview. Logo onderin. Tekst uitlijning links/center/rechts. Meerkleurige tekst en tekstgrootte.
+      </p>
 
       <div className="grid">
-        {/* Preview links, groter */}
+        {/* Preview links */}
         <section className="card">
           <h3 style={{ marginTop: 0 }}>Preview</h3>
           <div className="previewBox" style={{ aspectRatio: previewAspect }}>
             {imgUrl ? (
               <>
                 <img src={imgUrl} alt="Generated" className="previewImg" />
-                {text && (
-                  <div className="overlayText" style={{ ...gradientStyle(), fontSize: overlayFontSize }}>
-                    {text}
-                  </div>
-                )}
+                {/* overlay-wrap = kolom met text + logo; uitlijning via align-items */}
+                <div className="overlayWrap" style={{ alignItems: alignToFlex(textAlign) }}>
+                  {text && (
+                    <div className="overlayText" style={{ ...gradientStyle(), fontSize: overlayFontSize, textAlign }}>
+                      {text}
+                    </div>
+                  )}
+                  {showLogo && (
+                    <img src="/logo.png" alt="Logo" className="overlayLogo" />
+                  )}
+                </div>
               </>
             ) : (
               <div style={{ color: "#888", padding: 12, textAlign: "center" }}>
@@ -178,7 +192,11 @@ export default function Page() {
             <div className="row">
               <label className="field" style={{ flex: 1 }}>
                 <span><strong>2) Formaat</strong></span>
-                <select className="select" value={shape} onChange={(e) => { const next = e.target.value; setShape(next); setSizeKey(SIZE_OPTIONS[next][0].key); }}>
+                <select
+                  className="select"
+                  value={shape}
+                  onChange={(e) => { const next = e.target.value; setShape(next); setSizeKey(SIZE_OPTIONS[next][0].key); }}
+                >
                   {SHAPES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                 </select>
               </label>
@@ -213,15 +231,19 @@ export default function Page() {
               </label>
             </div>
 
-            <div className="card" style={{ padding: 12, border: '1px dashed #ddd', background: '#fbfbfc' }}>
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <strong>Tekstkleur</strong>
+            <div className="card" style={{ padding: 12, border: "1px dashed #ddd", background: "#fbfbfc" }}>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <strong>Tekststijl</strong>
                 <label className="row" style={{ gap: 6 }}>
-                  <input type="checkbox" checked={multiColor} onChange={(e) => {
-                    setMultiColor(e.target.checked);
-                    if (e.target.checked && textColors.length === 1) setTextColors([textColors[0], '#ff0055']);
-                    if (!e.target.checked) setTextColors([textColors[0] || '#111111']);
-                  }} />
+                  <input
+                    type="checkbox"
+                    checked={multiColor}
+                    onChange={(e) => {
+                      setMultiColor(e.target.checked);
+                      if (e.target.checked && textColors.length === 1) setTextColors([textColors[0], "#ff0055"]);
+                      if (!e.target.checked) setTextColors([textColors[0] || "#111111"]);}
+                    }
+                  />
                   <span>Meerdere kleuren (gradient)</span>
                 </label>
               </div>
@@ -229,37 +251,96 @@ export default function Page() {
               {/* Kleurenpickers */}
               {!multiColor ? (
                 <div className="row" style={{ marginTop: 10 }}>
-                  <input type="color" value={textColors[0]} onChange={(e) => setTextColors([e.target.value])} style={{ width: 44, height: 44, border: '1px solid #ddd', borderRadius: 8 }} />
+                  <input
+                    type="color"
+                    value={textColors[0]}
+                    onChange={(e) => setTextColors([e.target.value])}
+                    style={{ width: 44, height: 44, border: "1px solid #ddd", borderRadius: 8 }}
+                  />
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 64px)', gap: 10, marginTop: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 64px)", gap: 10, marginTop: 10 }}>
                   {textColors.map((c, idx) => (
-                    <div key={idx} style={{ display: 'grid', gap: 6, justifyItems: 'center' }}>
-                      <input type="color" value={c} onChange={(e) => setTextColors(textColors.map((v, i) => i === idx ? e.target.value : v))} style={{ width: 44, height: 44, border: '1px solid #ddd', borderRadius: 8 }} />
-                      <button type="button" className="btn" style={{ padding: '6px 8px', background: '#eee', color: '#111' }} onClick={() => setTextColors(textColors.filter((_, i) => i !== idx))} disabled={textColors.length <= 2}>−</button>
+                    <div key={idx} style={{ display: "grid", gap: 6, justifyItems: "center" }}>
+                      <input
+                        type="color"
+                        value={c}
+                        onChange={(e) => setTextColors(textColors.map((v, i) => i === idx ? e.target.value : v))}
+                        style={{ width: 44, height: 44, border: "1px solid #ddd", borderRadius: 8 }}
+                      />
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ padding: "6px 8px", background: "#eee", color: "#111" }}
+                        onClick={() => setTextColors(textColors.filter((_, i) => i !== idx))}
+                        disabled={textColors.length <= 2}
+                      >−</button>
                     </div>
                   ))}
                   {textColors.length < 3 && (
-                    <div style={{ display: 'grid', gap: 6, justifyItems: 'center' }}>
-                      <div style={{ width: 44, height: 44, border: '1px dashed #ccc', borderRadius: 8 }} />
-                      <button type="button" className="btn" style={{ padding: '6px 8px', background: '#111', color: '#fff' }} onClick={() => setTextColors([...textColors, '#00b3ff'])}>+</button>
+                    <div style={{ display: "grid", gap: 6, justifyItems: "center" }}>
+                      <div style={{ width: 44, height: 44, border: "1px dashed #ccc", borderRadius: 8 }} />
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ padding: "6px 8px", background: "#111", color: "#fff" }}
+                        onClick={() => setTextColors([...textColors, "#00b3ff"])}
+                      >+</button>
                     </div>
                   )}
                 </div>
               )}
+
+              {/* Uitlijning en logo */}
+              <div className="row" style={{ marginTop: 10 }}>
+                <label className="field" style={{ width: 180 }}>
+                  <span><strong>Uitlijning</strong></span>
+                  <select className="select" value={textAlign} onChange={(e) => setTextAlign(e.target.value)}>
+                    <option value="left">Links</option>
+                    <option value="center">Midden</option>
+                    <option value="right">Rechts</option>
+                  </select>
+                </label>
+
+                <label className="row" style={{ gap: 6 }}>
+                  <input type="checkbox" checked={showLogo} onChange={(e) => setShowLogo(e.target.checked)} />
+                  <span>Logo onder tekst tonen</span>
+                </label>
+              </div>
             </div>
 
             <div className="row" style={{ marginTop: 6 }}>
-              <button type="submit" disabled={loading} className="btn">{loading ? 'Bezig met genereren…' : 'Genereer afbeelding'}</button>
+              <button type="submit" disabled={loading} className="btn">
+                {loading ? "Bezig met genereren…" : "Genereer afbeelding"}
+              </button>
               <div className="price">Prijs: € {price.toFixed(2)}</div>
             </div>
 
-            {error && <div style={{ color: '#b00020' }}>Fout: {error}</div>}
+            {error && <div style={{ color: "#b00020" }}>Fout: {error}</div>}
           </form>
         </section>
       </div>
 
-      <p style={{ color: '#777', marginTop: 16 }}>Tip: voeg later opslag (S3/Supabase) toe om de afbeelding te bewaren en koppel Stripe Checkout voor betalingen.</p>
+      {/* VOORBEELDEN */}
+      <section className="examplesSection">
+        <h3 style={{ margin: "18px 0 10px" }}>Voorbeelden die we al maakten</h3>
+        <div className="examplesGrid">
+          {EXAMPLES.map((src, i) => (
+            <button
+              key={i}
+              className="exampleItem"
+              type="button"
+              onClick={() => { setImgUrl(src); setError(null); }}
+              title="Gebruik als preview"
+            >
+              <img className="exampleImg" src={src} alt={`Voorbeeld ${i+1}`} />
+            </button>
+          ))}
+        </div>
+        <p style={{ color: "#666", marginTop: 8 }}>
+          Tip: voeg je eigen voorbeelden toe door afbeeldingen te plaatsen in <code>/public/examples/</code> en de lijst <code>EXAMPLES</code> hierboven aan te vullen.
+        </p>
+      </section>
     </main>
   );
 }
