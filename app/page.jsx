@@ -1,7 +1,6 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-/** Vorm- en maatopties (ongewijzigd) */
 const SHAPES = [
   { key: "square", label: "Vierkant" },
   { key: "portrait", label: "Staand (rechthoek)" },
@@ -34,12 +33,6 @@ const MATERIALS = [
 
 const TEXT_SIZES = { small: 16, medium: 24, large: 32 };
 
-/** Voorbeeld-posters (uit /public/examples/...). Pas aan naar je echte bestanden. */
-const EXAMPLES = [
-  "/examples/1.jpg", "/examples/2.jpg", "/examples/3.jpg",
-  "/examples/4.jpg", "/examples/5.jpg", "/examples/6.jpg",
-];
-
 export default function Page() {
   const [prompt, setPrompt] = useState("");
   const [shape, setShape] = useState("square");
@@ -47,16 +40,25 @@ export default function Page() {
   const [material, setMaterial] = useState("paper");
 
   const [text, setText] = useState("");
-  const [textAlign, setTextAlign] = useState("center"); // NEW: left|center|right
+  const [textAlign, setTextAlign] = useState("center");
   const [multiColor, setMultiColor] = useState(false);
   const [textColors, setTextColors] = useState(["#111111"]);
   const [textSizeKey, setTextSizeKey] = useState("medium");
 
-  const [showLogo, setShowLogo] = useState(true); // NEW: logo aan/uit
   const [imgUrl, setImgUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [orderResult, setOrderResult] = useState(null);
+
+  // Voorbeelden uit /public/examples/examples.json
+  const [examples, setExamples] = useState([]);
+  const [examplesError, setExamplesError] = useState(null);
+  useEffect(() => {
+    fetch("/examples/examples.json", { cache: "no-store" })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error("Kan examples.json niet laden")))
+      .then(data => setExamples(Array.isArray(data?.files) ? data.files : []))
+      .catch(err => setExamplesError(err.message));
+  }, []);
 
   const sizes = SIZE_OPTIONS[shape];
   const currentSize = sizes.find((s) => s.key === sizeKey) || sizes[0];
@@ -114,7 +116,7 @@ export default function Page() {
       const payload = {
         prompt, shape, size: currentSize?.key, material,
         text, textColors, multiColor, textSize: textSizeKey, textAlign,
-        showLogo, price,
+        price,
       };
       const res = await fetch("/api/order", {
         method: "POST",
@@ -136,7 +138,7 @@ export default function Page() {
     <main className="container">
       <h1 style={{ fontSize: 30, margin: 0 }}>AI Poster Builder</h1>
       <p style={{ color: "#555", marginTop: 6, marginBottom: 18 }}>
-        Grote preview. Logo onderin. Tekst uitlijning links/center/rechts. Meerkleurige tekst en tekstgrootte.
+        Grote preview. Logo onderin (vast). Tekst uitlijning links/center/rechts. Meerkleurige tekst en tekstgrootte.
       </p>
 
       <div className="grid">
@@ -154,9 +156,8 @@ export default function Page() {
                       {text}
                     </div>
                   )}
-                  {showLogo && (
-                    <img src="/logo.png" alt="Logo" className="overlayLogo" />
-                  )}
+                  {/* LOGO: altijd zichtbaar */}
+                  <img src="/logo.png" alt="Logo" className="overlayLogo" />
                 </div>
               </>
             ) : (
@@ -248,7 +249,6 @@ export default function Page() {
                 </label>
               </div>
 
-              {/* Kleurenpickers */}
               {!multiColor ? (
                 <div className="row" style={{ marginTop: 10 }}>
                   <input
@@ -291,7 +291,6 @@ export default function Page() {
                 </div>
               )}
 
-              {/* Uitlijning en logo */}
               <div className="row" style={{ marginTop: 10 }}>
                 <label className="field" style={{ width: 180 }}>
                   <span><strong>Uitlijning</strong></span>
@@ -301,11 +300,7 @@ export default function Page() {
                     <option value="right">Rechts</option>
                   </select>
                 </label>
-
-                <label className="row" style={{ gap: 6 }}>
-                  <input type="checkbox" checked={showLogo} onChange={(e) => setShowLogo(e.target.checked)} />
-                  <span>Logo onder tekst tonen</span>
-                </label>
+                {/* logo is altijd aan, geen checkbox meer */}
               </div>
             </div>
 
@@ -324,22 +319,41 @@ export default function Page() {
       {/* VOORBEELDEN */}
       <section className="examplesSection">
         <h3 style={{ margin: "18px 0 10px" }}>Voorbeelden die we al maakten</h3>
-        <div className="examplesGrid">
-          {EXAMPLES.map((src, i) => (
-            <button
-              key={i}
-              className="exampleItem"
-              type="button"
-              onClick={() => { setImgUrl(src); setError(null); }}
-              title="Gebruik als preview"
-            >
-              <img className="exampleImg" src={src} alt={`Voorbeeld ${i+1}`} />
-            </button>
-          ))}
-        </div>
-        <p style={{ color: "#666", marginTop: 8 }}>
-          Tip: voeg je eigen voorbeelden toe door afbeeldingen te plaatsen in <code>/public/examples/</code> en de lijst <code>EXAMPLES</code> hierboven aan te vullen.
-        </p>
+
+        {examplesError && (
+          <div style={{ color: "#b00020", marginBottom: 8 }}>
+            Kan de lijst met voorbeelden niet laden: {examplesError}
+          </div>
+        )}
+
+        {examples.length === 0 ? (
+          <div style={{ color: "#666" }}>
+            Nog geen voorbeelden gevonden. Plaats afbeeldingen in <code>/public/examples/</code> en maak
+            <code> /public/examples/examples.json</code> met:
+            <pre style={{ background: "#f0f0f0", padding: 8, borderRadius: 8, overflow: "auto" }}>
+{`{
+  "files": [
+    "villa-duin-1.jpg",
+    "grachtenpand-2.jpg"
+  ]
+}`}
+            </pre>
+          </div>
+        ) : (
+          <div className="examplesGrid">
+            {examples.map((name, i) => (
+              <button
+                key={i}
+                className="exampleItem"
+                type="button"
+                onClick={() => { setImgUrl(`/examples/${name}`); setError(null); }}
+                title="Gebruik als preview"
+              >
+                <img className="exampleImg" src={`/examples/${name}`} alt={name} />
+              </button>
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );
