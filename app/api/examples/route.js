@@ -7,7 +7,6 @@ const ALLOWED = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
 
 export async function GET() {
   try {
-    // /public/examples binnen je project (read-only op Vercel)
     const dir = path.join(process.cwd(), "public", "examples");
     const files = await readdir(dir).catch(() => []);
 
