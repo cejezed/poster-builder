@@ -1,5 +1,10 @@
 "use client";
-// app/page.jsx
+import React, { useEffect, useMemo, useRef, useState } from "react";
+
+// (dan je component code)
+export default function Page() {
+  // ...
+}
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 export default function Page() {
