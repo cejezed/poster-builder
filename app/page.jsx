@@ -1,17 +1,5 @@
+// app/page.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-
-/**
- * Poster Builder – Mapness‑style Layout
- * Single-file React page (drop in /app/page.tsx for Next.js 13/14 App Router)
- *
- * - Top stepper like Mapness
- * - Left: step panels (prompt, text, size, material/frame)
- * - Right: sticky poster preview with frame mock
- * - Bottom sticky order bar (price + CTA)
- * - Uses your existing /api/generate-image endpoint (returns { imageUrl })
- *
- * TailwindCSS assumed.
- */
 
 export default function Page() {
   return (
@@ -45,25 +33,21 @@ function Hero() {
     <section className="bg-gradient-to-b from-white to-neutral-50 border-b">
       <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
         <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">Maak je eigen gepersonaliseerde poster</h1>
-        <p className="mt-2 text-neutral-600 max-w-2xl">Voer je idee in, bekijk direct een voorbeeld, voeg een persoonlijke tekst toe en bestel in een paar klikken.</p>
+        <p className="mt-2 text-neutral-600 max-w-2xl">
+          Voer je idee in, bekijk direct een voorbeeld, voeg een persoonlijke tekst toe en bestel in een paar klikken.
+        </p>
       </div>
     </section>
   );
 }
 
-// ---------------------------
-// Data
-// ---------------------------
+// ----- Data (pure JS, geen types) -----
 const SHAPES = [
   { id: "square", label: "Vierkant" },
   { id: "rect", label: "Rechthoek" },
-] as const;
+];
 
-type ShapeId = typeof SHAPES[number]["id"];
-
-type SizeOption = { id: string; label: string; widthMm: number; heightMm: number; basePrice: number };
-
-const SIZE_OPTIONS: Record<ShapeId, SizeOption[]> = {
+const SIZE_OPTIONS = {
   square: [
     { id: "sq-200", label: "20×20 cm", widthMm: 200, heightMm: 200, basePrice: 16 },
     { id: "sq-300", label: "30×30 cm", widthMm: 300, heightMm: 300, basePrice: 22 },
@@ -76,8 +60,7 @@ const SIZE_OPTIONS: Record<ShapeId, SizeOption[]> = {
   ],
 };
 
-type MaterialId = "paper" | "canvas";
-const MATERIALS: { id: MaterialId; label: string; multiplier: number }[] = [
+const MATERIALS = [
   { id: "paper", label: "Premium Mat Papier", multiplier: 1 },
   { id: "canvas", label: "Canvas", multiplier: 1.45 },
 ];
@@ -86,25 +69,21 @@ const FRAME_OPTIONS = [
   { id: "noframe", label: "Zonder lijst", extra: 0 },
   { id: "blackwood", label: "Lijst – Zwart hout", extra: 19 },
   { id: "oak", label: "Lijst – Eiken", extra: 22 },
-] as const;
+];
 
-type FrameId = typeof FRAME_OPTIONS[number]["id"];
-
-// ---------------------------
-// Builder
-// ---------------------------
+// ----- Builder -----
 function Builder() {
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState(null);
   const [overlayText, setOverlayText] = useState("");
 
-  const [shape, setShape] = useState<ShapeId>("square");
-  const [sizeId, setSizeId] = useState<string>(SIZE_OPTIONS.square[0].id);
-  const [material, setMaterial] = useState<MaterialId>("paper");
-  const [frame, setFrame] = useState<FrameId>("noframe");
+  const [shape, setShape] = useState("square");
+  const [sizeId, setSizeId] = useState(SIZE_OPTIONS.square[0].id);
+  const [material, setMaterial] = useState("paper");
+  const [frame, setFrame] = useState("noframe");
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasRef = useRef(null);
   const [exporting, setExporting] = useState(false);
 
   const size = useMemo(() => {
@@ -115,11 +94,11 @@ function Builder() {
   useEffect(() => {
     const list = SIZE_OPTIONS[shape];
     if (!list.find((s) => s.id === sizeId)) setSizeId(list[0].id);
-  }, [shape]);
+  }, [shape]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const price = useMemo(() => {
-    const mult = MATERIALS.find((m) => m.id === material)?.multiplier || 1;
-    const frameExtra = FRAME_OPTIONS.find((f) => f.id === frame)?.extra || 0;
+    const mult = (MATERIALS.find((m) => m.id === material) || {}).multiplier || 1;
+    const frameExtra = (FRAME_OPTIONS.find((f) => f.id === frame) || {}).extra || 0;
     return Math.round((size.basePrice * mult + frameExtra) * 100) / 100;
   }, [size, material, frame]);
 
@@ -135,10 +114,12 @@ function Builder() {
         body: JSON.stringify({ prompt, width: pxDims.width, height: pxDims.height }),
       });
       const data = await r.json();
-      if (data?.imageUrl) setImageUrl(data.imageUrl);
+      if (data && data.imageUrl) setImageUrl(data.imageUrl);
       else throw new Error("No imageUrl");
     } catch (e) {
-      setImageUrl(`https://picsum.photos/${Math.max(pxDims.width,512)}/${Math.max(pxDims.height,512)}?random=${encodeURIComponent(prompt)}`);
+      setImageUrl(
+        `https://picsum.photos/${Math.max(pxDims.width, 512)}/${Math.max(pxDims.height, 512)}?random=${encodeURIComponent(prompt)}`
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -149,19 +130,28 @@ function Builder() {
     setExporting(true);
     try {
       const img = await loadImage(imageUrl);
-      const canvas = canvasRef.current!;
-      const ctx = canvas.getContext("2d")!;
-      canvas.width = pxDims.width; canvas.height = pxDims.height;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+      canvas.width = pxDims.width;
+      canvas.height = pxDims.height;
       drawCoverImage(ctx, img, canvas.width, canvas.height);
       const margin = Math.round(canvas.height * 0.06);
       const textBoxWidth = Math.round(canvas.width * 0.8);
       const fontSize = Math.max(24, Math.round(canvas.height * 0.035));
       ctx.font = `${fontSize}px Inter, ui-sans-serif, system-ui`;
-      ctx.fillStyle = "#111"; ctx.textAlign = "center";
-      if (overlayText.trim()) drawMultilineCentered(ctx, overlayText.trim(), canvas.width/2, canvas.height - margin, textBoxWidth, fontSize * 1.2);
+      ctx.fillStyle = "#111";
+      ctx.textAlign = "center";
+      if (overlayText.trim()) {
+        drawMultilineCentered(ctx, overlayText.trim(), canvas.width / 2, canvas.height - margin, textBoxWidth, fontSize * 1.2);
+      }
       const url = canvas.toDataURL("image/png");
-      const a = document.createElement("a"); a.href = url; a.download = `poster-${size.label.replace(/\s+/g, "_")}.png`; a.click();
-    } finally { setExporting(false); }
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `poster-${size.label.replace(/\s+/g, "_")}.png`;
+      a.click();
+    } finally {
+      setExporting(false);
+    }
   }
 
   const canExport = Boolean(imageUrl);
@@ -171,27 +161,49 @@ function Builder() {
       {/* Left column: steps */}
       <div className="space-y-6">
         <Panel title="1. Afbeelding genereren" desc="Schrijf je idee, klik daarna op ‘Genereer’.">
-          <textarea value={prompt} onChange={(e)=>setPrompt(e.target.value)} placeholder="Bijv. Minimalistische skyline bij zonsondergang, warme pastelkleuren" className="w-full min-h-[96px] rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/10" />
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Bijv. Minimalistische skyline bij zonsondergang, warme pastelkleuren"
+            className="w-full min-h-[96px] rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/10"
+          />
           <div className="mt-3 flex gap-3">
-            <Button onClick={onGenerate} disabled={isGenerating || !prompt.trim()}>{isGenerating?"Bezig…":"Genereer afbeelding"}</Button>
-            <Button variant="ghost" onClick={()=>setImageUrl(`https://picsum.photos/${Math.max(pxDims.width,512)}/${Math.max(pxDims.height,512)}?random=${Date.now()}`)}>Test met voorbeeld</Button>
+            <Button onClick={onGenerate} disabled={isGenerating || !prompt.trim()}>
+              {isGenerating ? "Bezig…" : "Genereer afbeelding"}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() =>
+                setImageUrl(
+                  `https://picsum.photos/${Math.max(pxDims.width, 512)}/${Math.max(pxDims.height, 512)}?random=${Date.now()}`
+                )
+              }
+            >
+              Test met voorbeeld
+            </Button>
           </div>
         </Panel>
 
         <Panel title="2. Persoonlijke tekst" desc="Komt vast onderaan, mooi gecentreerd.">
-          <input value={overlayText} onChange={(e)=>setOverlayText(e.target.value)} type="text" placeholder="Bijv. Voor oma – 2025" className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/10" />
+          <input
+            value={overlayText}
+            onChange={(e) => setOverlayText(e.target.value)}
+            type="text"
+            placeholder="Bijv. Voor oma – 2025"
+            className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/10"
+          />
         </Panel>
 
         <Panel title="3. Formaat & materiaal" desc="Kies vorm, afmeting, materiaal en lijst.">
           <div className="flex gap-2 mb-3">
-            {SHAPES.map(s=> (
-              <Pill key={s.id} active={shape===s.id} onClick={()=>setShape(s.id)} label={s.label} />
+            {SHAPES.map((s) => (
+              <Pill key={s.id} active={shape === s.id} onClick={() => setShape(s.id)} label={s.label} />
             ))}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
-            {SIZE_OPTIONS[shape].map(s=> (
-              <OptionTile key={s.id} active={sizeId===s.id} onClick={()=>setSizeId(s.id)}>
+            {SIZE_OPTIONS[shape].map((s) => (
+              <OptionTile key={s.id} active={sizeId === s.id} onClick={() => setSizeId(s.id)}>
                 <div className="font-medium">{s.label}</div>
                 <div className="text-xs text-neutral-500">v.a. € {s.basePrice.toFixed(2)}</div>
               </OptionTile>
@@ -199,8 +211,18 @@ function Builder() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Select label="Materiaal" value={material} onChange={(v)=>setMaterial(v as MaterialId)} options={MATERIALS.map(m=>({value:m.id,label:m.label}))} />
-            <Select label="Lijst" value={frame} onChange={(v)=>setFrame(v as FrameId)} options={FRAME_OPTIONS.map(f=>({value:f.id,label:`${f.label}${f.extra?` (+€ ${f.extra})`:''}`}))} />
+            <Select
+              label="Materiaal"
+              value={material}
+              onChange={(v) => setMaterial(v)}
+              options={MATERIALS.map((m) => ({ value: m.id, label: m.label }))}
+            />
+            <Select
+              label="Lijst"
+              value={frame}
+              onChange={(v) => setFrame(v)}
+              options={FRAME_OPTIONS.map((f) => ({ value: f.id, label: `${f.label}${f.extra ? ` (+€ ${f.extra})` : ""}` }))}
+            />
           </div>
         </Panel>
 
@@ -210,34 +232,45 @@ function Builder() {
             <div className="text-2xl font-bold">€ {price.toFixed(2)}</div>
           </div>
           <div className="flex gap-3">
-            <Button onClick={exportPNG} disabled={!canExport || exporting}>{exporting?"Exporteren…":"Exporteer PNG"}</Button>
-            <Button variant="secondary" disabled={!canExport} onClick={()=>alert("Koppel je checkout hier.")}>Bestellen</Button>
+            <Button onClick={exportPNG} disabled={!canExport || exporting}>{exporting ? "Exporteren…" : "Exporteer PNG"}</Button>
+            <Button variant="secondary" disabled={!canExport} onClick={() => alert("Koppel je checkout hier.")}>
+              Bestellen
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Right column: sticky preview like Mapness */}
+      {/* Right column: sticky preview */}
       <div className="lg:sticky lg:top-20 self-start">
         <div className="rounded-3xl bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
-          <div className="border-b p-4"><div className="font-semibold">Voorbeeld</div><div className="text-xs text-neutral-500">Live weergave van je poster</div></div>
+          <div className="border-b p-4">
+            <div className="font-semibold">Voorbeeld</div>
+            <div className="text-xs text-neutral-500">Live weergave van je poster</div>
+          </div>
           <div className="p-4">
-            <div className="w-full bg-neutral-100 rounded-2xl overflow-hidden border relative" style={{aspectRatio: shape==="square"?"1 / 1":`${size.widthMm} / ${size.heightMm}`}}>
-              {imageUrl?(
+            <div
+              className="w-full bg-neutral-100 rounded-2xl overflow-hidden border relative"
+              style={{ aspectRatio: shape === "square" ? "1 / 1" : `${size.widthMm} / ${size.heightMm}` }}
+            >
+              {imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={imageUrl} alt="preview" className="absolute inset-0 h-full w-full object-cover" />
-              ):(
+              ) : (
                 <div className="absolute inset-0 grid place-items-center text-neutral-400 text-sm">Nog geen afbeelding</div>
               )}
 
               {overlayText && (
                 <div className="absolute left-1/2 -translate-x-1/2 bottom-6 w-[80%] text-center text-neutral-900/90">
-                  <div className="line-clamp-3 text-ellipsis break-words font-medium" style={{fontSize: shape==="square"?"clamp(14px,2.8vw,24px)":"clamp(14px,2.4vw,24px)"}}>{overlayText}</div>
+                  <div
+                    className="line-clamp-3 text-ellipsis break-words font-medium"
+                    style={{ fontSize: shape === "square" ? "clamp(14px,2.8vw,24px)" : "clamp(14px,2.4vw,24px)" }}
+                  >
+                    {overlayText}
+                  </div>
                 </div>
               )}
 
-              {frame !== "noframe" && (
-                <div className="pointer-events-none absolute inset-0 m-3 rounded-xl" style={{ boxShadow: "inset 0 0 0 6px rgba(0,0,0,0.5)" }} />
-              )}
+              {frame !== "noframe" && <div className="pointer-events-none absolute inset-0 m-3 rounded-xl" style={{ boxShadow: "inset 0 0 0 6px rgba(0,0,0,0.5)" }} />}
             </div>
           </div>
         </div>
@@ -258,7 +291,7 @@ function BottomBar() {
 }
 
 // UI primitives
-function Panel({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
+function Panel({ title, desc, children }) {
   return (
     <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/5 p-4">
       <div className="mb-3">
@@ -269,42 +302,94 @@ function Panel({ title, desc, children }: { title: string; desc?: string; childr
     </div>
   );
 }
-function Button({ children, onClick, disabled, variant = "primary" }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; variant?: "primary" | "secondary" | "ghost" }) {
-  const base = "inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed";
+function Button({ children, onClick, disabled, variant = "primary" }) {
+  const base =
+    "inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed";
   const styles = variant === "primary" ? "bg-black text-white hover:bg-black/90" : variant === "secondary" ? "bg-neutral-200 hover:bg-neutral-300" : "bg-transparent hover:bg-neutral-100";
-  return <button onClick={onClick} disabled={disabled} className={`${base} ${styles}`}>{children}</button>;
+  return (
+    <button onClick={onClick} disabled={disabled} className={`${base} ${styles}`}>
+      {children}
+    </button>
+  );
 }
-function Pill({ label, active, onClick }: { label: string; active?: boolean; onClick?: () => void }) {
-  return <button onClick={onClick} className={`rounded-full px-4 py-2 text-sm border transition ${active?"bg-black text-white border-black":"bg-white hover:bg-neutral-50 border-neutral-200"}`}>{label}</button>;
+function Pill({ label, active, onClick }) {
+  return (
+    <button onClick={onClick} className={`rounded-full px-4 py-2 text-sm border transition ${active ? "bg-black text-white border-black" : "bg-white hover:bg-neutral-50 border-neutral-200"}`}>
+      {label}
+    </button>
+  );
 }
-function OptionTile({ children, active, onClick }: { children: React.ReactNode; active?: boolean; onClick?: () => void }) {
-  return <button onClick={onClick} className={`rounded-xl border p-3 text-left transition ${active?"border-black ring-1 ring-black":"border-neutral-200 hover:border-neutral-300"}`}>{children}</button>;
+function OptionTile({ children, active, onClick }) {
+  return (
+    <button onClick={onClick} className={`rounded-xl border p-3 text-left transition ${active ? "border-black ring-1 ring-black" : "border-neutral-200 hover:border-neutral-300"}`}>
+      {children}
+    </button>
+  );
 }
-function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+function Select({ label, value, onChange, options }) {
   return (
     <label className="block text-sm">
       <span className="mb-1 block text-neutral-600">{label}</span>
-      <select value={value} onChange={(e)=>onChange(e.target.value)} className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/10">
-        {options.map(o=> <option key={o.value} value={o.value}>{o.label}</option>)}
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/10">
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
       </select>
     </label>
   );
 }
 
 // Helpers
-function mmToPixels(wMm: number, hMm: number, ppi = 300) {
-  const inchesW = wMm / 25.4; const inchesH = hMm / 25.4;
+function mmToPixels(wMm, hMm, ppi = 300) {
+  const inchesW = wMm / 25.4;
+  const inchesH = hMm / 25.4;
   return { width: Math.round(inchesW * ppi), height: Math.round(inchesH * ppi) };
 }
-function loadImage(src: string) { return new Promise<HTMLImageElement>((resolve, reject) => { const img = new Image(); img.crossOrigin = "anonymous"; img.onload = () => resolve(img); img.onerror = reject; img.src = src; }); }
-function drawCoverImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cw: number, ch: number) {
-  const ir = img.width / img.height, cr = cw / ch; let dw = cw, dh = ch;
-  if (ir > cr) { dh = ch; dw = Math.round(dh * ir); } else { dw = cw; dh = Math.round(dw / ir); }
-  const dx = Math.round((cw - dw) / 2), dy = Math.round((ch - dh) / 2); ctx.drawImage(img, dx, dy, dw, dh);
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
 }
-function drawMultilineCentered(ctx: CanvasRenderingContext2D, text: string, centerX: number, baselineY: number, maxWidth: number, lineHeight: number) {
-  const words = text.split(/\s+/); const lines: string[] = []; let line = "";
-  for (const w of words) { const test = line ? `${line} ${w}` : w; if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = w; } else { line = test; } }
-  if (line) lines.push(line); const total = lines.length * lineHeight; let y = baselineY - total;
-  for (const l of lines) { ctx.fillText(l, centerX, y + lineHeight); y += lineHeight; }
+function drawCoverImage(ctx, img, cw, ch) {
+  const ir = img.width / img.height;
+  const cr = cw / ch;
+  let dw = cw,
+    dh = ch;
+  if (ir > cr) {
+    dh = ch;
+    dw = Math.round(dh * ir);
+  } else {
+    dw = cw;
+    dh = Math.round(dw / ir);
+  }
+  const dx = Math.round((cw - dw) / 2);
+  const dy = Math.round((ch - dh) / 2);
+  ctx.drawImage(img, dx, dy, dw, dh);
+}
+function drawMultilineCentered(ctx, text, centerX, baselineY, maxWidth, lineHeight) {
+  const words = text.split(/\s+/);
+  const lines = [];
+  let line = "";
+  for (const w of words) {
+    const test = line ? `${line} ${w}` : w;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = w;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  const total = lines.length * lineHeight;
+  let y = baselineY - total;
+  for (const l of lines) {
+    ctx.fillText(l, centerX, y + lineHeight);
+    y += lineHeight;
+  }
 }
