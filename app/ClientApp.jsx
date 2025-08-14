@@ -56,7 +56,7 @@ const SIZE_OPTIONS = {
   rect: [
     { id: "r-210-297", label: "A4 (21×29.7 cm)", widthMm: 210, heightMm: 297, basePrice: 18 },
     { id: "r-300-400", label: "30×40 cm", widthMm: 300, heightMm: 400, basePrice: 26 },
-    { id: "r-400-500", label: "40×50 cm)", widthMm: 400, heightMm: 500, basePrice: 34 },
+    { id: "r-400-500", label: "40×50 cm", widthMm: 400, heightMm: 500, basePrice: 34 },
   ],
 };
 
