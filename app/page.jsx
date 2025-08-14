@@ -1,12 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-// (dan je component code)
-export default function Page() {
-  // ...
-}
-import React, { useEffect, useMemo, useRef, useState } from "react";
-
 export default function Page() {
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
@@ -365,15 +359,9 @@ function loadImage(src) {
 function drawCoverImage(ctx, img, cw, ch) {
   const ir = img.width / img.height;
   const cr = cw / ch;
-  let dw = cw,
-    dh = ch;
-  if (ir > cr) {
-    dh = ch;
-    dw = Math.round(dh * ir);
-  } else {
-    dw = cw;
-    dh = Math.round(dw / ir);
-  }
+  let dw = cw, dh = ch;
+  if (ir > cr) { dh = ch; dw = Math.round(dh * ir); }
+  else { dw = cw; dh = Math.round(dw / ir); }
   const dx = Math.round((cw - dw) / 2);
   const dy = Math.round((ch - dh) / 2);
   ctx.drawImage(img, dx, dy, dw, dh);
