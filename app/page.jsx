@@ -41,7 +41,7 @@ function Hero() {
   );
 }
 
-// ----- Data (pure JS, geen types) -----
+// ----- Data -----
 const SHAPES = [
   { id: "square", label: "Vierkant" },
   { id: "rect", label: "Rechthoek" },
