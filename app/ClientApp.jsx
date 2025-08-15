@@ -735,3 +735,12 @@ function drawMultilineCentered(ctx, text, centerX, baselineY, maxWidth, lineHeig
   }
 
 }
+function BottomBar() {
+  return (
+    <footer className="border-t bg-neutral-100 py-6 text-sm text-neutral-600">
+      <div className="mx-auto max-w-6xl px-4 text-center">
+        © {new Date().getFullYear()} – PosterBuilder
+      </div>
+    </footer>
+  );
+}
