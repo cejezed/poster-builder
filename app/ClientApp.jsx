@@ -337,4 +337,51 @@ function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.onload = () =>
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+function drawCoverImage(ctx, img, cw, ch) {
+  const ir = img.width / img.height;
+  const cr = cw / ch;
+  let dw = cw, dh = ch;
+  if (ir > cr) { dh = ch; dw = Math.round(dh * ir); }
+  else { dw = cw; dh = Math.round(dw / ir); }
+  const dx = Math.round((cw - dw) / 2);
+  const dy = Math.round((ch - dh) / 2);
+  ctx.drawImage(img, dx, dy, dw, dh);
+}
+
+function drawMultilineCentered(ctx, text, centerX, baselineY, maxWidth, lineHeight) {
+  const words = text.split(/\s+/);
+  const lines = [];
+  let line = "";
+  for (const w of words) {
+    const test = line ? `${line} ${w}` : w;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = w;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  const total = lines.length * lineHeight;
+  let y = baselineY - total;
+  for (const l of lines) {
+    ctx.fillText(l, centerX, y + lineHeight);
+    y += lineHeight;
+  }
+}
+
+function BottomBar() {
+  return (
+    <footer className="sticky bottom-0 z-40 border-t bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70">
+      <div className="mx-auto max-w-6xl px-4 py-3 text-center text-xs text-neutral-600">
+        Tip: je kunt altijd eerst met een voorbeeld testen voordat je een echte afbeelding genereert.
+      </div>
+    </footer>
+  );
+}
