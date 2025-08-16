@@ -1,14 +1,17 @@
+// app/layout.jsx
 import "./globals.css";
 
 export const metadata = {
-  title: "AI Poster – demo",
-  description: "Generate AI images via OpenAI API",
+  title: "PosterBuilder",
+  description: "Maak je eigen gepersonaliseerde poster",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="nl">
-      <body>{children}</body>
+      <body className="min-h-screen bg-neutral-50 text-neutral-900 antialiased">
+        {children}
+      </body>
     </html>
   );
 }
