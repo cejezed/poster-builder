@@ -76,7 +76,7 @@ const FRAME_OPTIONS = [
 function Builder() {
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState(null);
   const [overlayText, setOverlayText] = useState("");
 
   const [shape, setShape] = useState("square");
@@ -84,28 +84,30 @@ function Builder() {
   const [material, setMaterial] = useState("paper");
   const [frame, setFrame] = useState("noframe");
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasRef = useRef(null);
   const [exporting, setExporting] = useState(false);
 
   const size = useMemo(() => {
-    const list = SIZE_OPTIONS[shape as keyof typeof SIZE_OPTIONS];
+    const list = SIZE_OPTIONS[shape] || SIZE_OPTIONS.square;
     return list.find((s) => s.id === sizeId) || list[0];
   }, [shape, sizeId]);
 
   useEffect(() => {
-    const list = SIZE_OPTIONS[shape as keyof typeof SIZE_OPTIONS];
+    const list = SIZE_OPTIONS[shape] || SIZE_OPTIONS.square;
     if (!list.find((s) => s.id === sizeId)) setSizeId(list[0].id);
   }, [shape]);
 
   const price = useMemo(() => {
-    const mult = (MATERIALS.find((m) => m.id === material) || ({} as any)).multiplier || 1;
-    const frameExtra = (FRAME_OPTIONS.find((f) => f.id === frame) || ({} as any)).extra || 0;
+    const m = MATERIALS.find((mm) => mm.id === material) || {};
+    const mult = m.multiplier || 1;
+    const f = FRAME_OPTIONS.find((ff) => ff.id === frame) || {};
+    const frameExtra = f.extra || 0;
     return Math.round((size.basePrice * mult + frameExtra) * 100) / 100;
   }, [size, material, frame]);
 
   const pxDims = useMemo(() => mmToPixels(size.widthMm, size.heightMm, 300), [size]);
 
-  // --- STEP 2: Stable preview aspect (UI only) ---
+  // Alleen voor UI: houd de preview stabiel qua verhouding
   const previewAspectClass = shape === "square" ? "aspect-[1/1]" : "aspect-[4/5]";
 
   async function onGenerate() {
@@ -133,11 +135,12 @@ function Builder() {
 
   async function exportPNG() {
     if (!imageUrl) return;
+    if (!canvasRef.current) return;
     setExporting(true);
     try {
       const img = await loadImage(imageUrl);
-      const canvas = canvasRef.current!;
-      const ctx = canvas.getContext("2d")!;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
       canvas.width = pxDims.width;
       canvas.height = pxDims.height;
 
@@ -173,9 +176,8 @@ function Builder() {
   const canExport = Boolean(imageUrl);
 
   return (
-    // --- STEP 1: Fixed preview column & tidy grid ---
     <section className="mx-auto max-w-6xl px-4 py-10 grid grid-cols-1 lg:grid-cols-[1fr_520px] gap-8 items-start">
-      {/* Left column: steps (cards) */}
+      {/* Left column: stappen */}
       <div className="space-y-6">
         <Card>
           <CardHeader title="1. Afbeelding genereren" subtitle="Schrijf je idee en klik ‘Genereer’." />
@@ -227,7 +229,7 @@ function Builder() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {SIZE_OPTIONS[shape as keyof typeof SIZE_OPTIONS].map((s) => (
+              {(SIZE_OPTIONS[shape] || SIZE_OPTIONS.square).map((s) => (
                 <OptionTile key={s.id} active={sizeId === s.id} onClick={() => setSizeId(s.id)}>
                   <div className="font-medium">{s.label}</div>
                   <div className="text-xs text-neutral-500">v.a. € {s.basePrice.toFixed(2)}</div>
@@ -262,20 +264,21 @@ function Builder() {
               <Button onClick={exportPNG} disabled={!canExport || exporting}>
                 {exporting ? "Exporteren…" : "Exporteer PNG"}
               </Button>
-              <Button variant="secondary" disabled={!canExport} onClick={() => alert("Koppel je checkout hier.")}>Bestellen</Button>
+              <Button variant="secondary" disabled={!canExport} onClick={() => alert("Koppel je checkout hier.")}>
+                Bestellen
+              </Button>
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Right column: sticky preview card */}
+      {/* Right: sticky preview */}
       <div className="lg:sticky lg:top-20 self-start">
         <Card>
           <CardHeader title="Voorbeeld" subtitle="Live weergave van je poster" />
           <div className="p-4">
             <div className={`w-full ${previewAspectClass} bg-neutral-100 rounded-2xl overflow-hidden border relative`}>
               {imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img src={imageUrl} alt="preview" className="absolute inset-0 h-full w-full object-cover" />
               ) : (
                 <div className="absolute inset-0 grid place-items-center text-neutral-400 text-sm">Nog geen afbeelding</div>
@@ -283,14 +286,20 @@ function Builder() {
 
               {overlayText && (
                 <div className="absolute left-1/2 -translate-x-1/2 bottom-6 w-[80%] text-center text-neutral-900/90">
-                  <div className="line-clamp-3 text-ellipsis break-words font-medium" style={{ fontSize: shape === "square" ? "clamp(14px,2.8vw,24px)" : "clamp(14px,2.4vw,24px)" }}>
+                  <div
+                    className="line-clamp-3 text-ellipsis break-words font-medium"
+                    style={{ fontSize: shape === "square" ? "clamp(14px,2.8vw,24px)" : "clamp(14px,2.4vw,24px)" }}
+                  >
                     {overlayText}
                   </div>
                 </div>
               )}
 
               {frame !== "noframe" && (
-                <div className="pointer-events-none absolute inset-0 m-3 rounded-xl" style={{ boxShadow: "inset 0 0 0 6px rgba(0,0,0,0.5)" }} />
+                <div
+                  className="pointer-events-none absolute inset-0 m-3 rounded-xl"
+                  style={{ boxShadow: "inset 0 0 0 6px rgba(0,0,0,0.5)" }}
+                />
               )}
             </div>
           </div>
@@ -301,11 +310,11 @@ function Builder() {
   );
 }
 
-// ----- UI Primitives (uniforme look) -----
-function Card({ children }: { children: React.ReactNode }) {
+// ----- UI Primitives -----
+function Card({ children }) {
   return <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">{children}</div>;
 }
-function CardHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+function CardHeader({ title, subtitle }) {
   return (
     <div className="border-b p-4">
       <div className="font-semibold">{title}</div>
@@ -313,7 +322,7 @@ function CardHeader({ title, subtitle }: { title: string; subtitle?: string }) {
     </div>
   );
 }
-function Button({ children, onClick, disabled, variant = "primary" }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; variant?: "primary" | "secondary" | "ghost" }) {
+function Button({ children, onClick, disabled, variant = "primary" }) {
   const base =
     "inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed";
   const styles =
@@ -328,27 +337,31 @@ function Button({ children, onClick, disabled, variant = "primary" }: { children
     </button>
   );
 }
-function Pill({ label, active, onClick }: { label: string; active?: boolean; onClick?: () => void }) {
+function Pill({ label, active, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`rounded-full px-4 py-2 text-sm border transition ${active ? "bg-black text-white border-black" : "bg-white hover:bg-neutral-50 border-neutral-200"}`}
+      className={`rounded-full px-4 py-2 text-sm border transition ${
+        active ? "bg-black text-white border-black" : "bg-white hover:bg-neutral-50 border-neutral-200"
+      }`}
     >
       {label}
     </button>
   );
 }
-function OptionTile({ children, active, onClick }: { children: React.ReactNode; active?: boolean; onClick?: () => void }) {
+function OptionTile({ children, active, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`rounded-xl border p-3 text-left transition ${active ? "border-black ring-1 ring-black" : "border-neutral-200 hover:border-neutral-300"}`}
+      className={`rounded-xl border p-3 text-left transition ${
+        active ? "border-black ring-1 ring-black" : "border-neutral-200 hover:border-neutral-300"
+      }`}
     >
       {children}
     </button>
   );
 }
-function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+function Select({ label, value, onChange, options }) {
   return (
     <label className="block text-sm">
       <span className="mb-1 block text-neutral-600">{label}</span>
@@ -368,13 +381,13 @@ function Select({ label, value, onChange, options }: { label: string; value: str
 }
 
 // ----- Helpers -----
-function mmToPixels(wMm: number, hMm: number, ppi = 300) {
+function mmToPixels(wMm, hMm, ppi = 300) {
   const inchesW = wMm / 25.4;
   const inchesH = hMm / 25.4;
   return { width: Math.round(inchesW * ppi), height: Math.round(inchesH * ppi) };
 }
-function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
@@ -382,7 +395,7 @@ function loadImage(src: string) {
     img.src = src;
   });
 }
-function drawCoverImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cw: number, ch: number) {
+function drawCoverImage(ctx, img, cw, ch) {
   const ir = img.width / img.height;
   const cr = cw / ch;
   let dw = cw,
@@ -398,16 +411,9 @@ function drawCoverImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cw
   const dy = Math.round((ch - dh) / 2);
   ctx.drawImage(img, dx, dy, dw, dh);
 }
-function drawMultilineCentered(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  centerX: number,
-  baselineY: number,
-  maxWidth: number,
-  lineHeight: number
-) {
+function drawMultilineCentered(ctx, text, centerX, baselineY, maxWidth, lineHeight) {
   const words = text.split(/\s+/);
-  const lines: string[] = [];
+  const lines = [];
   let line = "";
   for (const w of words) {
     const test = line ? `${line} ${w}` : w;
@@ -437,18 +443,3 @@ function BottomBar() {
     </footer>
   );
 }
-
-/* ----------------------------------------------
-   ALSO ADD THIS FILE: app/layout.jsx (Step 4)
----------------------------------------------- */
-// app/layout.jsx
-// import "./globals.css";
-// import { Inter } from "next/font/google";
-// const inter = Inter({ subsets: ["latin"], display: "swap" });
-// export default function RootLayout({ children }) {
-//   return (
-//     <html lang="nl">
-//       <body className={inter.className}>{children}</body>
-//     </html>
-//   );
-// }
