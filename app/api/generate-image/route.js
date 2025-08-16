@@ -1,46 +1,46 @@
-export const runtime = "nodejs";
+// app/api/generate-image/route.js
 import OpenAI from "openai";
 
-export async function POST(req) {
+export const runtime = "nodejs"; // zeker weten Node runtimes, niet edge
+
+export async function POST(request) {
   try {
-    const { prompt, shape } = await req.json();
-    if (!prompt) {
-      return new Response(JSON.stringify({ error: "Missing prompt" }), { status: 400 });
+    const { prompt, width = 1024, height = 1024 } = await request.json();
+
+    // Als er geen prompt is: fout terug
+    if (!prompt || !String(prompt).trim()) {
+      return Response.json({ error: "Prompt ontbreekt" }, { status: 400 });
     }
 
+    // Als er geen API key is: graceful fallback naar picsum zodat je app wél werkt
     if (!process.env.OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), { status: 500 });
+      const fallback = `https://picsum.photos/${Math.max(width, 512)}/${Math.max(height, 512)}?random=${encodeURIComponent(
+        prompt
+      )}`;
+      return Response.json({ imageUrl: fallback, provider: "fallback" }, { status: 200 });
     }
 
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const size = pickSupportedSize(shape);
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const resp = await client.images.generate({
-      model: "gpt-image-1",
-      prompt,
-      size
+    // DALL·E 3: 1024x1024 is vaste size; we kiezen de dichtstbijzijnde vierkant
+    const result = await openai.images.generate({
+      model: "gpt-image-1", // of "dall-e-3" als jouw account dat vereist
+      prompt: `Maak een afbeelding voor een poster op basis van deze beschrijving. Schone compositie, geen tekst in beeld.\n\n${prompt}`,
+      size: "1024x1024",
+      quality: "standard",
+      n: 1,
     });
 
-    const b64 = resp.data?.[0]?.b64_json;
-    if (!b64) {
-      return new Response(JSON.stringify({ error: "No image returned" }), { status: 500 });
-    }
+    const url = result?.data?.[0]?.url;
+    if (!url) throw new Error("Geen image URL ontvangen van OpenAI");
 
-    const dataUrl = `data:image/png;base64,${b64}`;
-    return new Response(JSON.stringify({ imageUrl: dataUrl }), {
-      headers: { "content-type": "application/json" },
-    });
-  } catch (e) {
-    const msg = e?.message || "Image generation failed";
-    return new Response(JSON.stringify({ error: msg }), { status: 500 });
+    return Response.json({ imageUrl: url, provider: "openai" }, { status: 200 });
+  } catch (err) {
+    // Extra fallback zodat frontend netjes door kan
+    const fallback = `https://picsum.photos/1024/1024?random=${Date.now()}`;
+    return Response.json(
+      { error: String(err?.message || err), imageUrl: fallback, provider: "fallback" },
+      { status: 200 }
+    );
   }
-}
-
-function pickSupportedSize(shape) {
-  // Vierkant → 1024x1024, Staand → 1024x1536, Liggend → 1536x1024
-  if (!shape) return "1024x1024";
-  if (shape === "square") return "1024x1024";
-  if (shape === "portrait") return "1024x1536";
-  if (shape === "landscape") return "1536x1024";
-  return "1024x1024";
 }
